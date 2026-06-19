@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inn's Up 🤎</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f5f0e6;
+  display:flex;
+  min-height:100vh;
+}
+#login{
+  margin:auto;
+  background:#fff8e7;
+  padding:25px;
+  border-radius:15px;
+  width:90%;
+  max-width:350px;
+  text-align:center;
+  box-shadow:0 0 10px rgba(0,0,0,.1);
+}
+#login input,#searchInput,textarea{
+  width:100%;
+  padding:10px;
+  margin:8px 0;
+}
+button{
+  padding:10px;
+  cursor:pointer;
+}
+.main{
+  flex:1;
+  padding:15px;
+  margin-right:70px;
+}
+.sidebar{
+  width:60px;
+  background:#d2b48c;
+  position:fixed;
+  right:0;
+  top:0;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:15px;
+  padding:10px;
+}
+.sidebar button{
+  width:40px;
+  height:40px;
+  border:none;
+  border-radius:50%;
+}
+.active{
+  background:#8b4513;
+  color:#fff;
+}
+.profile-img{
+  width:100px;
+  height:100px;
+  border-radius:50%;
+  object-fit:cover;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:10px;
+}
+.card{
+  background:#fff8e7;
+  border-radius:10px;
+  overflow:hidden;
+  border:1px solid #d2b48c;
+}
+.card img,.story img{
+  width:100%;
+  display:block;
+}
+.stories{
+  display:flex;
+  gap:10px;
+  margin-bottom:15px;
+}
+.story{
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  overflow:hidden;
+  border:2px solid #8b4513;
+  cursor:pointer;
+}
+.viewer,.modal{
+  position:fixed;
+  inset:0;
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+.viewer{
+  background:rgba(0,0,0,.85);
+  flex-direction:column;
+}
+.viewer img{
+  max-width:90%;
+  max-height:80%;
+}
+.progress{
+  position:absolute;
+  top:0;
+  left:0;
+  height:5px;
+  background:white;
+  width:0;
+}
+.close{
+  position:absolute;
+  top:20px;
+  right:20px;
+  color:white;
+  cursor:pointer;
+}
+.modal{
+  background:rgba(0,0,0,.7);
+}
+.modal-content{
+  background:white;
+  padding:15px;
+  border-radius:10px;
+  width:90%;
+  max-width:400px;
+}
+.heart{
+  position:fixed;
+  left:50%;
+  top:50%;
+  font-size:40px;
+  animation:pop 1s forwards;
+}
+@keyframes pop{
+  from{transform:scale(0);opacity:1}
+  to{transform:scale(2);opacity:0}
+}
+@media(max-width:768px){
+  .sidebar{
+    width:100%;
+    height:60px;
+    top:auto;
+    bottom:0;
+    flex-direction:row;
+    justify-content:center;
+  }
+  .main{
+    margin-right:0;
+    margin-bottom:70px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="login">
+<h2>Inn's Up 🤎</h2>
+<input id="username" placeholder="Masukkan username">
+<button onclick="login()">Login</button>
+</div>
+
+<div id="app" style="display:none;width:100%">
+<div class="main">
+<div id="home">
+<p>Foto Profil</p>
+<input type="file" id="profileInput" onchange="setProfile(event)"><br><br>
+<input type="file" id="storyInput">
+<button onclick="addStory()">Story</button><hr>
+<input type="file" id="postImg"><br>
+<textarea id="caption" placeholder="Tulis caption..."></textarea>
+<button onclick="addPost()">Post</button>
+</div>
+
+<div id="profileView"></div>
+
+<div id="search" style="display:none">
+<input id="searchInput" placeholder="Cari user..." oninput="searchUser()">
+<div id="result"></div>
+</div>
+</div>
+
+<div class="sidebar">
+<button onclick="showProfile(current.name)">👤</button>
+<button onclick="show('home')">➕</button>
+<button onclick="show('search')">🔍</button>
+</div>
+</div>
+
+<div class="viewer" id="viewer">
+<div class="progress" id="progress"></div>
+<div class="close" onclick="closeViewer()">✖</div>
+<img id="viewImg">
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-content" id="modalContent"></div>
+</div>
+
+<script>
+let users=JSON.parse(localStorage.getItem("users"))||[];
+let posts=JSON.parse(localStorage.getItem("posts"))||[];
+let stories=JSON.parse(localStorage.getItem("stories"))||[];
+let current=null;
+
+function save(){
+localStorage.setItem("users",JSON.stringify(users));
+localStorage.setItem("posts",JSON.stringify(posts));
+localStorage.setItem("stories",JSON.stringify(stories));
+}
+
+function login(){
+  let name = document.getElementById("username").value.trim();
+
+  if(!name) return;
+
+  let u = users.find(x => x.name === name);
+
+  if(!u){
+    u = {
+      name:name,
+      pic:"",
+      following:[],
+      followers:0
+    };
+
+    users.push(u);
+  }
+
+  current = u;
+  save();
+
+  document.getElementById("login").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+
+  showProfile(name);
+}
+
+function show(id){
+home.style.display="none";
+profileView.style.display="none";
+search.style.display="none";
+document.getElementById(id).style.display="block";
+}
+
+function setProfile(e){
+const file=e.target.files[0];
+if(!file)return;
+let r=new FileReader();
+r.onload=x=>{
+current.pic=x.target.result;
+save();
+showProfile(current.name);
+};
+r.readAsDataURL(file);
+}
+
+function addPost(){
+
+  let file = postImg.files[0];
+  let text = caption.value.trim();
+
+  if(!file && !text){
+    alert("Tulis sesuatu atau pilih gambar");
+    return;
+  }
+
+  if(file){
+
+    let r = new FileReader();
+
+    r.onload = e => {
+
+      posts.unshift({
+        user: current.name,
+        img: e.target.result,
+        caption: text,
+        likes: 0,
+        comments: []
+      });
+
+      save();
+      showProfile(current.name);
+    };
+
+    r.readAsDataURL(file);
+
+  }else{
+
+    posts.unshift({
+      user: current.name,
+      img: "",
+      caption: text,
+      likes: 0,
+      comments: []
+    });
+
+    save();
+    showProfile(current.name);
+  }
+}
+function addStory(){
+let file=storyInput.files[0];
+if(!file)return;
+let r=new FileReader();
+r.onload=e=>{
+stories.unshift({user:current.name,img:e.target.result,time:Date.now()});
+save();
+showProfile(current.name);
+};
+r.readAsDataURL(file);
+}
+
+function showProfile(name){
+show("profileView");
+let user=users.find(u=>u.name===name);
+let html=`<h2>${user.name}</h2>`;
+if(user.pic) html+=`<img src="${user.pic}" class="profile-img">`;
+html+=`
+<p>Followers: ${user.followers}</p>
+<button onclick="hapusProfil()">🗑 Hapus Foto Profil</button>
+`;
+html+=`<div class="stories">`;
+stories.filter(s=>s.user===name).forEach(s=>{
+html+=`<div class="story" onclick="view('${s.img}')"><img src="${s.img}"></div>`;
+});
+html+=`</div><div class="grid">`;
+
+posts.filter(p=>p.user===name).forEach(p=>{
+
+html+=`
+<div class="card" onclick="openPost(${posts.indexOf(p)})">
+
+${p.img
+? `<img src="${p.img}">`
+: `<div style="
+padding:20px;
+text-align:center;
+min-height:120px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:18px;
+font-weight:bold;
+">
+${p.caption}
+</div>`
+}
+
+</div>
+`;
+
+});
+html+=`</div>`;
+profileView.innerHTML = html;
+}
+
+function openPost(i){
+let p=posts[i];
+modalContent.innerHTML=`
+${p.img
+? `<img src="${p.img}" width="100%">`
+: ""
+}
+<p>${p.caption}</p>
+<p>❤️ ${p.likes}</p>
+<button onclick="like(${i})">Like</button><br><br>
+<button onclick="hapusPost(${i})">
+🗑 Hapus Post
+</button>
+<input id="c${i}" placeholder="Komentar">
+<button onclick="commentPost(${i})">Kirim</button>
+${p.comments.map(c=>`<div><b>${c.user}</b>: ${c.text}</div>`).join("")}
+<br><br><button onclick="closeModal()">Close</button>`;
+modal.style.display="flex";
+}
+
+function like(i){
+posts[i].likes++;
+save();
+openPost(i);
+}
+
+function commentPost(i){
+let t=document.getElementById("c"+i).value;
+if(!t)return;
+posts[i].comments.push({user:current.name,text:t});
+save();
+openPost(i);
+}
+
+function closeModal(){ modal.style.display="none"; }
+
+function view(img){
+viewer.style.display="flex";
+viewImg.src=img;
+let w=0;
+progress.style.width="0%";
+let iv=setInterval(()=>{
+w++;
+progress.style.width=w+"%";
+if(w>=100){clearInterval(iv);closeViewer();}
+},50);
+}
+
+function closeViewer(){ viewer.style.display="none"; }
+
+function searchUser(){
+let q=searchInput.value.toLowerCase();
+result.innerHTML="";
+users.filter(u=>u.name.toLowerCase().includes(q)).forEach(u=>{
+result.innerHTML+=`<p><b onclick="showProfile('${u.name}')">${u.name}</b></p>`;
+});
+}
+
+function hapusProfil(){
+
+  current.pic="";
+
+  save();
+
+  showProfile(current.name);
+}
+
+function hapusPost(i){
+
+  if(!confirm("Hapus post ini?")) return;
+
+  posts.splice(i,1);
+
+  save();
+
+  closeModal();
+
+  showProfile(current.name);
+}
+
+</script>
+</body>
+</html>
